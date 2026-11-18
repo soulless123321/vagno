@@ -4,47 +4,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Северный Фотоконкурс{% endblock %}</title>
-    <!-- Подключаем шрифт -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
-    <!-- Подключаем наш CSS -->
-    <link rel="stylesheet" href="{% static 'app/css/style.css' %}">
+    <title>{% block title %}Arctic Photo — Платформа фотоконкурсов{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>
-<body>
-    <!-- Шапка сайта -->
-    <header class="navbar">
-        <div class="container nav-content">
-            <a href="{% url 'home' %}" class="logo">
-                <span class="logo-icon">❄️</span> Arctic Photo
-            </a>
-            <nav class="nav-links">
-                <a href="{% url 'home' %}">Конкурсы</a>
-                {% if user.is_authenticated %}
-                    <a href="{% url 'profile' %}">Личный кабинет</a>
-                    <a href="{% url 'logout' %}" class="btn-outline">Выйти</a>
-                {% else %}
-                    <a href="{% url 'login' %}">Вход</a>
-                    <a href="{% url 'register' %}" class="btn-primary">Регистрация</a>
-                {% endif %}
-            </nav>
+<body class="{% block body_class %}{% endblock %}">
+
+    {% block header %}
+    <header class="site-header">
+        <div class="container nav">
+            <a href="/" class="logo">❄️ Arctic <span>Photo</span></a>
+            <div class="nav-right" id="nav-auth-area">
+                <!-- заполняет js/api.js -->
+            </div>
         </div>
     </header>
+    {% endblock %}
 
-    <!-- Основной контент страницы -->
-    <main class="container main-content">
-        {% block content %}
-        <!-- Сюда будет вставляться контент из других страниц -->
-        {% endblock %}
-    </main>
+    {% block body %}{% endblock %}
 
-    <!-- Подвал сайта -->
     <footer class="footer">
-        <div class="container">
-            <p>&copy; 2026 Arctic Photo. Платформа для проведения северных фотоконкурсов.</p>
-        </div>
+        <p>&copy; 2026 Arctic Photo. Платформа для проведения северных фотоконкурсов.</p>
     </footer>
 
-    <!-- Подключаем JS -->
-    <script src="{% static 'app/js/main.js' %}"></script>
+    <!-- ===== Модалка: Регистрация ===== -->
+    <div class="modal-overlay" id="modal-register">
+        <div class="modal">
+            <button class="modal-close" type="button">&times;</button>
+            <h2>Регистрация</h2>
+
+            <div class="notice notice-success" id="register-success">
+                Аккаунт создан! Проверьте почту и подтвердите регистрацию, затем войдите.
+            </div>
+
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="reg-name">Имя (логин)</label>
+                    <input type="text" id="reg-name" placeholder="Ivan" required>
+                    <div class="field-errors" id="reg-fe-name"></div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <input type="email" id="reg-email" placeholder="your@email.com" required>
+                    <div class="field-errors" id="reg-fe-email"></div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Пароль</label>
+                    <input type="password" id="reg-password" placeholder="Мин. 8 символов, цифра и спецсимвол" required>
+                    <div class="field-errors" id="reg-fe-password"></div>
+                </div>
+                <button type="submit" class="btn btn-block">Зарегистрироваться</button>
+                <div class="error-msg" id="register-error"></div>
+            </form>
+
+            <div class="link-text">Уже есть аккаунт? <a href="/login/">Войти</a></div>
+        </div>
+    </div>
+
+    <!-- ===== Модалка: Создание конкурса (админ/жюри) ===== -->
+    <div class="modal-overlay" id="modal-create-contest">
+        <div class="modal">
+            <button class="modal-close" type="button">&times;</button>
+            <h2>Новый конкурс</h2>
+            <form id="create-contest-form">
+                <div class="form-group">
+                    <label for="cc-title">Название</label>
+                    <input type="text" id="cc-title" placeholder="Северное сияние — 2026" required maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="cc-description">Описание</label>
+                    <textarea id="cc-description" class="input" rows="4"
+                              placeholder="Расскажите, о чём конкурс..."
+                              style="background: rgba(15,23,42,.5); resize: vertical;"></textarea>
+                </div>
+                <button type="submit" class="btn btn-block">Создать конкурс</button>
+                <div class="error-msg" id="contest-error"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{% static 'js/api.js' %}"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
