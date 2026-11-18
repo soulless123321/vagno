@@ -9,6 +9,7 @@ from os import write
 from pydoc import describe
 from turtledemo.penrose import start
 from venv import create
+from django.shortcuts import render
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpRequest, HttpResponse
@@ -275,6 +276,7 @@ def logout(request):
     return JsonResponse({'code': 200, 'message': 'Вы вышли из системы'}, safe=False, status=200)
 #загрузка файлов
 @csrf_exempt
+@csrf_exempt
 def works(request):
     if request.method == 'POST':
         auth_header = request.headers.get('Authorization')
@@ -298,13 +300,15 @@ def works(request):
             return JsonResponse({'code': 422, 'message': 'Заполните все поля'}, status=422)
 
         if image.size > 10 * 1024 * 1024:
-            return JsonResponse({'code': 422, })
+            return JsonResponse({'code': 422, 'message': 'Файл слишком большой (макс. 10 МБ)'}, status=422)
+
         allowed = ['image/jpeg', 'image/png', 'image/webp']
-        if image.contest_type not in allowed:
+        # Исправленная опечатка (contest_type -> content_type)
+        if image.content_type not in allowed:
             return JsonResponse({'code': 422, 'message': 'Только JPEG, PNG или WEBP'}, status=422)
 
         ext = image.name.split('.')[-1].lower()
-        filename =f"{uuid.uuid4()}.{ext}"
+        filename = f"{uuid.uuid4()}.{ext}"
 
         works_dir = os.path.join(settings.MEDIA_ROOT, 'works')
         os.makedirs(works_dir, exist_ok=True)
@@ -316,19 +320,20 @@ def works(request):
 
         relative_path = f"works/{filename}"
 
+        # ВОЗВРАЩАЕМ ПРАВИЛЬНЫЙ СТАТУС PENDING
         work = Work.objects.create(
             contest_id=int(contest_id),
             user_id=user.id,
             title=title,
             image=relative_path,
-            status='pending',
+            status='pending',  # <--- Работа ждет модерации
             votes_count=0,
             views=0
         )
 
         return JsonResponse({
             'code': 201,
-            'message': 'Работа загружена',
+            'message': 'Работа загружена и отправлена на модерацию',
             'data': {
                 'id': work.id,
                 'title': work.title,
@@ -336,6 +341,50 @@ def works(request):
                 'status': work.status
             }
         }, status=201)
+
+    elif request.method == 'GET':
+        # Этот блок нужен, чтобы галерея показывала ТОЛЬКО одобренные работы
+        contest_id = request.GET.get('contest_id')
+
+        if contest_id:
+            works_list = Work.objects.filter(contest_id=contest_id, status='approved')
+        else:
+            works_list = Work.objects.filter(status='approved')
+
+        data = []
+        for w in works_list:
+            data.append({
+                'id': w.id,
+                'title': w.title,
+                'image': w.image,
+                'status': w.status,
+                'votes_count': w.votes_count,
+                'user_id': w.user_id
+            })
+
+        return JsonResponse({'code': 200, 'data': data}, safe=False, status=200)
+
+    elif request.method == 'GET':
+        # Этот блок нужен, чтобы галерея показывала ТОЛЬКО одобренные работы
+        contest_id = request.GET.get('contest_id')
+
+        if contest_id:
+            works_list = Work.objects.filter(contest_id=contest_id, status='approved')
+        else:
+            works_list = Work.objects.filter(status='approved')
+
+        data = []
+        for w in works_list:
+            data.append({
+                'id': w.id,
+                'title': w.title,
+                'image': w.image,
+                'status': w.status,
+                'votes_count': w.votes_count,
+                'user_id': w.user_id
+            })
+
+        return JsonResponse({'code': 200, 'data': data}, safe=False, status=200)
 #функци для выгрузки аналитики по конкурсам
 @csrf_exempt
 def contests_analytics_csv(request):
@@ -590,3 +639,10 @@ def auth_refresh(request):
             'refresh_token': new_refresh
         }
     }, status=200)
+
+def index(request):
+    return render(request, 'index.html')
+def login_page(request):
+    return render(request, 'login.html')
+def contest_page(request):
+    return render(request, 'contest.html')

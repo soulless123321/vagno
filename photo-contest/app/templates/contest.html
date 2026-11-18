@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конкурс - Arctic Photo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a; --surface-color: #1e293b; --text-main: #f8fafc;
+            --text-muted: #94a3b8; --accent: #38bdf8; --accent-hover: #0ea5e9; --border-color: #334155;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* Шапка */
+        header { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); padding: 15px 0; position: fixed; width: 100%; top: 0; z-index: 100; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; width: 100%; }
+        .nav { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 900; color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo span { color: var(--accent); }
+        .btn { background: var(--accent); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 800; text-decoration: none; transition: 0.3s; border: none; cursor: pointer; }
+        .btn:hover { background: var(--accent-hover); transform: translateY(-2px); }
+        .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border-color); }
+
+        /* Заголовок конкурса */
+        .contest-header { margin-top: 90px; padding: 40px 0; border-bottom: 1px solid var(--border-color); }
+        .contest-title { font-size: 42px; font-weight: 900; margin-bottom: 15px; }
+        .contest-desc { color: var(--text-muted); font-size: 18px; max-width: 800px; line-height: 1.6; margin-bottom: 20px; }
+        .badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; text-transform: uppercase; margin-bottom: 20px; }
+        .badge-open { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .badge-voting { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+        .badge-closed { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+
+        /* Галерея (Masonry) */
+        main { flex: 1; padding: 40px 0; }
+        .masonry-grid { column-count: 3; column-gap: 20px; }
+        @media (max-width: 900px) { .masonry-grid { column-count: 2; } }
+        @media (max-width: 600px) { .masonry-grid { column-count: 1; } }
+
+        .work-card { background: var(--surface-color); border-radius: 12px; overflow: hidden; margin-bottom: 20px; break-inside: avoid; border: 1px solid var(--border-color); position: relative; transition: 0.3s; }
+        .work-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .work-img { width: 100%; display: block; }
+        .work-info { padding: 15px; }
+        .work-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+        .work-author { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+
+        .vote-btn { width: 100%; padding: 10px; background: rgba(56, 189, 248, 0.1); color: var(--accent); border: 1px solid var(--accent); border-radius: 6px; font-weight: 700; cursor: pointer; transition: 0.3s; }
+        .vote-btn:hover { background: var(--accent); color: #000; }
+        .vote-count { text-align: center; margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--accent); }
+
+        /* Форма загрузки */
+        .upload-section { background: var(--surface-color); padding: 30px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 40px; text-align: center; }
+        .upload-section h3 { margin-bottom: 20px; font-size: 24px; }
+        .upload-area { border: 2px dashed var(--border-color); padding: 40px; border-radius: 12px; cursor: pointer; transition: 0.3s; margin-bottom: 20px; }
+        .upload-area:hover { border-color: var(--accent); background: rgba(56, 189, 248, 0.05); }
+        .upload-area p { color: var(--text-muted); font-size: 16px; }
+        .upload-area input[type="file"] { display: none; }
+
+        #loader { text-align: center; color: var(--accent); font-size: 20px; margin-top: 30px; display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container nav">
+            <a href="/" class="logo">❄️ Arctic <span>Photo</span></a>
+            <div>
+                <a href="/login/" class="btn btn-outline">Войти</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container contest-header">
+        <span id="contest-status" class="badge">Загрузка...</span>
+        <h1 id="contest-title" class="contest-title">Название конкурса</h1>
+        <p id="contest-desc" class="contest-desc">Описание конкурса...</p>
+    </div>
+
+    <main class="container">
+        <!-- Блок загрузки (показываем только если статус open) -->
+        <div id="upload-container" class="upload-section" style="display: none;">
+            <h3>Участвовать в конкурсе</h3>
+            <form id="upload-form">
+                <input type="text" id="work-title" placeholder="Название вашей работы" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: white; margin-bottom: 15px; font-size: 16px;" required>
+
+                <div class="upload-area" onclick="document.getElementById('file-input').click()">
+                    <p id="file-name">Нажмите, чтобы выбрать фото, или перетащите файл сюда</p>
+                    <input type="file" id="file-input" accept="image/*" required>
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%;">Загрузить работу</button>
+            </form>
+        </div>
+
+        <h2 id="gallery-title" style="margin-bottom: 20px; display: none;">Работы участников</h2>
+
+        <div id="loader" style="display: none;">Загрузка работ...</div>
+
+        <div id="works-gallery" class="masonry-grid">
+            <!-- Сюда JS будет вставлять картинки -->
+        </div>
+    </main>
+
+    <script src="/static/js/contest.js"></script>
+</body>
+</html>

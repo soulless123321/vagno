@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arctic Photo - Платформа фотоконкурсов</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --border-color: #334155;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Montserrat', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+
+        /* --- Шапка (Glassmorphism) --- */
+        header {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 0; position: fixed; width: 100%; top: 0; z-index: 100;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; width: 100%; }
+        .nav { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 900; color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo span { color: var(--accent); }
+        .btn { background: var(--accent); color: #000; padding: 10px 24px; border-radius: 8px; font-weight: 800; text-decoration: none; transition: 0.3s; border: none; cursor: pointer; }
+        .btn:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4); }
+        .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border-color); }
+
+        /* --- Hero-секция (Главный экран) --- */
+        .hero {
+            margin-top: 70px;
+            height: 450px;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 1)), url('https://images.unsplash.com/photo-1483347756197-71ef80e95f73?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 20px;
+        }
+        .hero h1 { font-size: 56px; font-weight: 900; margin-bottom: 15px; text-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .hero p { color: #cbd5e1; font-size: 20px; max-width: 600px; margin-bottom: 30px; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+
+        /* --- Контент --- */
+        main { flex: 1; padding: 60px 0; }
+        .section-title { font-size: 32px; font-weight: 800; margin-bottom: 40px; position: relative; display: inline-block; }
+        .section-title::after { content: ''; position: absolute; bottom: -10px; left: 0; width: 50%; height: 4px; background: var(--accent); border-radius: 2px; }
+
+        /* --- Сетка карточек --- */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; }
+        .card {
+            background: var(--surface-color); border-radius: 16px; overflow: hidden;
+            border: 1px solid var(--border-color); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; flex-direction: column; position: relative;
+        }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 20px 30px rgba(0,0,0,0.6); border-color: var(--accent); }
+
+        .card-img-wrapper { position: relative; width: 100%; height: 200px; overflow: hidden; }
+        .card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .card:hover .card-img { transform: scale(1.1); }
+
+        /* Статусы */
+        .badge { position: absolute; top: 15px; right: 15px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; backdrop-filter: blur(4px); }
+        .badge-open { background: rgba(16, 185, 129, 0.9); color: #fff; }
+        .badge-voting { background: rgba(245, 158, 11, 0.9); color: #fff; }
+        .badge-closed { background: rgba(239, 68, 68, 0.9); color: #fff; }
+        .badge-draft { background: rgba(100, 116, 139, 0.9); color: #fff; }
+
+        .card-body { padding: 25px; flex: 1; display: flex; flex-direction: column; }
+        .card-title { font-size: 22px; font-weight: 800; margin-bottom: 10px; line-height: 1.3; }
+        .card-text { color: var(--text-muted); font-size: 15px; margin-bottom: 25px; flex: 1; line-height: 1.5; }
+        .card-btn { width: 100%; text-align: center; padding: 12px; }
+
+        /* Подвал */
+        .footer { text-align: center; padding: 30px 0; color: var(--text-muted); border-top: 1px solid var(--border-color); font-size: 14px; background: #0b1120; }
+
+        #loader { text-align: center; color: var(--accent); font-size: 20px; margin-top: 30px; display: none; font-weight: 600;}
+        .error { color: #ef4444; text-align: center; font-size: 18px; margin-top: 30px; background: rgba(239, 68, 68, 0.1); padding: 20px; border-radius: 8px; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-card { animation: fadeIn 0.6s ease forwards; opacity: 0; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container nav">
+            <a href="/" class="logo">❄️ Arctic <span>Photo</span></a>
+            <div>
+                <a href="/login/" class="btn btn-outline">Войти</a>
+                <a href="#" class="btn" style="margin-left: 10px;">Регистрация</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="hero">
+        <h1>Открой красоту Севера</h1>
+        <p>Участвуй в фотоконкурсах, делись своим творчеством и получай признание.</p>
+        <a href="#contests" class="btn" style="font-size: 18px; padding: 15px 40px;">Смотреть конкурсы</a>
+    </div>
+
+    <main class="container" id="contests">
+        <h2 class="section-title">Активные конкурсы</h2>
+
+        <div id="loader" style="display: none;">Загрузка конкурсов...</div>
+        <div id="error-message" class="error" style="display: none;"></div>
+
+        <div id="contests-grid" class="grid">
+            <!-- Сюда JS будет вставлять карточки -->
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Arctic Photo. Платформа для проведения северных фотоконкурсов.</p>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

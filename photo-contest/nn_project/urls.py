@@ -3,9 +3,10 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 from app import views
-from app.views import auth_refresh
+from app.views import auth_refresh, index, login_page, contest_page
 
 urlpatterns = [
+    path('', index, name='index'),
     path('admin/', admin.site.urls),
     path('api/csrf/', views.get_xcsrf, name='csrf'),
     path('api/users/', views.users, name='users'),
@@ -14,6 +15,8 @@ urlpatterns = [
     path('api/logout/', views.logout, name='logout'),
     path('api/test/', views.test, name='test'),
     path('api/', views.main, name='main'),
+    path('login/', login_page, name='login_page'),
+    path('contest/', contest_page, name='contest_page'),
     path('api/contests/', views.contests, name='contests'),
     path('api/refresh/', auth_refresh, name='auth_refresh'),
     path('api/works/', views.works, name='works'),

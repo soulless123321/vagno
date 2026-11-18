@@ -142,8 +142,8 @@ EMAIL_USE_SSL = True
 EMAIL_HOST_USER = 'russkihk72@yandex.ru'
 EMAIL_HOST_PASSWORD = 'sushmhhnxbwtbfwj'
 
-DEFAULT_FROM_EMAIL = 'Mirro Team <russkihk72@yandex.ru>'
-SERVER_EMAIL = 'russkihk72@yandex.ru'
+DEFAULT_FROM_EMAIL = 'Mirro Team <russihk72@yandex.ru>'
+SERVER_EMAIL = 'russihk72@yandex.ru'
 
 
 # CORS

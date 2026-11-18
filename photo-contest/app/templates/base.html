@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Северный Фотоконкурс{% endblock %}</title>
+    <!-- Подключаем шрифт -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Подключаем наш CSS -->
+    <link rel="stylesheet" href="{% static 'app/css/style.css' %}">
+</head>
+<body>
+    <!-- Шапка сайта -->
+    <header class="navbar">
+        <div class="container nav-content">
+            <a href="{% url 'home' %}" class="logo">
+                <span class="logo-icon">❄️</span> Arctic Photo
+            </a>
+            <nav class="nav-links">
+                <a href="{% url 'home' %}">Конкурсы</a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'profile' %}">Личный кабинет</a>
+                    <a href="{% url 'logout' %}" class="btn-outline">Выйти</a>
+                {% else %}
+                    <a href="{% url 'login' %}">Вход</a>
+                    <a href="{% url 'register' %}" class="btn-primary">Регистрация</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <!-- Основной контент страницы -->
+    <main class="container main-content">
+        {% block content %}
+        <!-- Сюда будет вставляться контент из других страниц -->
+        {% endblock %}
+    </main>
+
+    <!-- Подвал сайта -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Arctic Photo. Платформа для проведения северных фотоконкурсов.</p>
+        </div>
+    </footer>
+
+    <!-- Подключаем JS -->
+    <script src="{% static 'app/js/main.js' %}"></script>
+</body>
+</html>
