@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Профиль — Arctic Photo{% endblock %}
+
+{% block body %}
+    <div class="container page-content">
+        <h1 class="section-title">Мой профиль</h1>
+        
+        <div class="profile-card">
+            <div class="profile-avatar">
+                <img id="avatar-img" src="https://via.placeholder.com/150" alt="Аватар">
+                <label for="avatar-input" class="btn btn-sm" style="margin-top: 10px;">Изменить аватар</label>
+                <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp" style="display: none;">
+            </div>
+            
+            <div class="profile-info">
+                <div class="form-group">
+                    <label>Имя пользователя</label>
+                    <input type="text" id="profile-username" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="profile-email" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Роль</label>
+                    <input type="text" id="profile-role" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Дата регистрации</label>
+                    <input type="text" id="profile-created" readonly>
+                </div>
+            </div>
+        </div>
+        
+        <div class="profile-actions">
+            <button class="btn" onclick="openModal('modal-change-password')">Сменить пароль</button>
+            <a href="/" class="btn btn-outline">На главную</a>
+        </div>
+        
+        <div id="admin-section" style="display: none; margin-top: 40px;">
+            <h2 class="section-title">Панель администратора</h2>
+            <div class="admin-stats" id="admin-stats"></div>
+            <button class="btn" onclick="window.location.href='/admin/'">Открыть Django Admin</button>
+        </div>
+    </div>
+    
+    <!-- Модалка смены пароля -->
+    <div class="modal-overlay" id="modal-change-password">
+        <div class="modal">
+            <button class="modal-close" type="button">&times;</button>
+            <h2>Смена пароля</h2>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label for="old-password">Текущий пароль</label>
+                    <input type="password" id="old-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password">Новый пароль</label>
+                    <input type="password" id="new-password" required placeholder="Мин. 8 символов, цифра и спецсимвол">
+                </div>
+                <button type="submit" class="btn btn-block">Сменить пароль</button>
+                <div class="error-msg" id="password-error"></div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!API.isAuthed()) {
+        window.location.href = '/login/';
+        return;
+    }
+    
+    // Загружаем профиль
+    const { ok, data } = await API.getJSON('/api/profile/', true);
+    if (!ok) {
+        toast('Ошибка загрузки профиля', 'error');
+        return;
+    }
+    
+    const profile = data.data;
+    document.getElementById('profile-username').value = profile.username;
+    document.getElementById('profile-email').value = profile.email;
+    document.getElementById('profile-created').value = profile.created_at;
+    
+    const roleNames = {1: 'Администратор', 2: 'Пользователь', 3: 'Жюри'};
+    document.getElementById('profile-role').value = roleNames[profile.role_id] || 'Неизвестно';
+    
+    if (profile.avatar) {
+        document.getElementById('avatar-img').src = `/media/${profile.avatar}`;
+    }
+    
+    // Если админ - показываем дашборд
+    if (profile.role_id === 1 || profile.role_id === 3) {
+        document.getElementById('admin-section').style.display = 'block';
+        loadAdminStats();
+    }
+    
+    // Загрузка аватара
+    document.getElementById('avatar-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const formData = new FormData();
+        formData.append('avatar', file);
+        
+        const { ok, data } = await API.postMultipart('/api/profile/', formData, true);
+        if (ok) {
+            toast('Аватар обновлён', 'success');
+            document.getElementById('avatar-img').src = `/media/${data.data.avatar}`;
+        } else {
+            toast(data?.message || 'Ошибка загрузки аватара', 'error');
+        }
+    });
+});
+
+async function loadAdminStats() {
+    const { ok, data } = await API.getJSON('/api/admin/dashboard/', true);
+    if (!ok) return;
+    
+    const stats = data.data;
+    document.getElementById('admin-stats').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-number">${stats.total_users}</div>
+            <div class="stat-label">Пользователей</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.active_users}</div>
+            <div class="stat-label">Активных</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.total_contests}</div>
+            <div class="stat-label">Конкурсов</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.total_works}</div>
+            <div class="stat-label">Работ</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.pending_works}</div>
+            <div class="stat-label">Ожидают модерации</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${stats.total_votes}</div>
+            <div class="stat-label">Голосов</div>
+        </div>
+    `;
+}
+
+// Смена пароля
+document.getElementById('change-password-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errBox = document.getElementById('password-error');
+    errBox.classList.remove('visible');
+    
+    const oldPassword = document.getElementById('old-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    
+    const { ok, data } = await API.postForm('/api/change-password/', {
+        old_password: oldPassword,
+        new_password: newPassword
+    }, true);
+    
+    if (ok) {
+        toast('Пароль успешно изменён', 'success');
+        closeModal('modal-change-password');
+        document.getElementById('change-password-form').reset();
+    } else {
+        errBox.textContent = data?.message || 'Ошибка смены пароля';
+        errBox.classList.add('visible');
+    }
+});
+</script>
+{% endblock %}

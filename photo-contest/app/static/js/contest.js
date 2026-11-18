@@ -1,15 +1,19 @@
 /* ============================================================
-   contest.js — страница конкурса: инфо, галерея работ,
-   загрузка своей работы, голосование (UI)
+   contest.js — страница конкурса: инфо, галерея, загрузка, голосование, модерация
    Зависимости: api.js
    ============================================================ */
 
 let CONTEST_ID = null;
 let currentContest = null;
-// Работы, за которые пользователь уже голосовал (per-browser)
+let isModerationMode = false; // Флаг режима модерации
+
 const myVotesKey = () => `my_votes_${API.user()?.id ?? 'anon'}`;
 const getMyVotes = () => { try { return JSON.parse(localStorage.getItem(myVotesKey())) || {}; } catch { return {}; } };
-const setMyVote = (contestId, workId) => { const v = getMyVotes(); v[contestId] = workId; localStorage.setItem(myVotesKey(), JSON.stringify(v)); };
+const setMyVote = (contestId, workId) => {
+    const v = getMyVotes();
+    v[contestId] = workId;
+    localStorage.setItem(myVotesKey(), JSON.stringify(v));
+};
 const getMyVote = (contestId) => getMyVotes()[contestId] || null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupUploadForm(CONTEST_ID);
 });
 
-// 1. Данные конкурса (бэкенд не отдаёт один конкурс — берём список и ищем)
+// 1. Данные конкурса
 async function loadContestData(id) {
     const { ok, data } = await API.getJSON('/api/contests/?per_page=100&page=1', true);
 
@@ -39,7 +43,7 @@ async function loadContestData(id) {
     const contest = (data?.data || []).find(c => c.id == id);
     if (!contest) {
         document.getElementById('contest-title').textContent = 'Конкурс не найден';
-        document.getElementById('contest-status').textContent = 'Нет such';
+        document.getElementById('contest-status').textContent = 'Нет такого';
         document.getElementById('contest-status').className = 'badge badge-closed';
         return;
     }
@@ -52,20 +56,34 @@ async function loadContestData(id) {
     const status = (contest.status || 'draft').toLowerCase();
 
     if (status === 'open') {
-        statusBadge.textContent = 'Прием работ';
+        statusBadge.textContent = 'Приём работ';
         statusBadge.className = 'badge badge-open';
     } else if (status === 'voting') {
         statusBadge.textContent = 'Голосование';
         statusBadge.className = 'badge badge-voting';
     } else if (status === 'closed') {
-        statusBadge.textContent = 'Завершен';
+        statusBadge.textContent = 'Завершён';
         statusBadge.className = 'badge badge-closed';
     } else {
         statusBadge.textContent = 'Черновик';
         statusBadge.className = 'badge badge-draft';
     }
 
-    // Форма участия: показываем если приём работ И пользователь вошёл
+    // Добавляем кнопку режима модерации, если у пользователя есть права (роль 1 или 3)
+    if (canManage()) {
+        const modToggle = document.createElement('button');
+        modToggle.className = 'btn btn-outline btn-sm';
+        modToggle.style.marginTop = '15px';
+        modToggle.textContent = '🛡 Режим модерации';
+        modToggle.onclick = () => {
+            isModerationMode = !isModerationMode;
+            modToggle.textContent = isModerationMode ? '👁 Обычный режим' : '🛡 Режим модерации';
+            modToggle.className = isModerationMode ? 'btn btn-sm' : 'btn btn-outline btn-sm';
+            loadWorks(id);
+        };
+        document.getElementById('contest-desc').after(modToggle);
+    }
+
     const uploadBox = document.getElementById('upload-container');
     if (status === 'open') {
         if (API.isAuthed()) {
@@ -74,13 +92,13 @@ async function loadContestData(id) {
             uploadBox.style.display = 'block';
             uploadBox.innerHTML = `
                 <h3>Хотите участвовать?</h3>
-                <p class="contest-desc" style="margin: 0 auto 20px;">Войдите в аккаунт, чтобы загрузить свою работу в этот конкурс.</p>
+                <p class="contest-desc" style="margin: 0 auto 20px;">Войдите в аккаунт, чтобы загрузить свою работу.</p>
                 <a href="/login/" class="btn">Войти</a>
             `;
         }
     }
 
-    if (status === 'voting') {
+    if (status === 'voting' && !isModerationMode) {
         document.getElementById('vote-hint').style.display = 'flex';
     }
 
@@ -92,45 +110,84 @@ async function loadWorks(id) {
     const gallery = document.getElementById('works-gallery');
     const loader = document.getElementById('loader');
     const galleryTitle = document.getElementById('gallery-title');
+    const voteHint = document.getElementById('vote-hint');
 
     loader.classList.add('visible');
     gallery.innerHTML = '';
 
-    const { ok, data } = await API.getJSON(`/api/works/?contest_id=${id}`);
+    // В режиме модерации запрашиваем pending, иначе approved
+    const statusParam = isModerationMode ? 'pending' : 'approved';
+
+    const [worksResponse, voteResponse] = await Promise.all([
+        API.getJSON(`/api/works/?contest_id=${id}&status=${statusParam}`),
+        !isModerationMode && API.isAuthed() ? API.getJSON(`/api/votes/?contest_id=${id}`, true) : Promise.resolve({ ok: false })
+    ]);
+
     loader.classList.remove('visible');
+
+    if (isModerationMode) {
+        galleryTitle.textContent = 'Работы, ожидающие модерации';
+        voteHint.style.display = 'none';
+    } else {
+        galleryTitle.textContent = 'Работы участников';
+        if (currentContest && currentContest.status === 'voting') {
+            voteHint.style.display = 'flex';
+        }
+    }
     galleryTitle.style.display = 'block';
 
-    if (!ok) {
+    if (!worksResponse.ok) {
         gallery.innerHTML = '<p style="color: #ef4444;">Не удалось загрузить работы.</p>';
         return;
     }
 
-    const works = data?.data || [];
+    const works = worksResponse.data?.data || [];
+
+    if (!isModerationMode && voteResponse.ok && voteResponse.data?.data) {
+        setMyVote(id, voteResponse.data.data.work_id);
+    }
 
     if (works.length === 0) {
-        gallery.innerHTML = '<p class="empty-state">Пока нет загруженных работ. Станьте первым!</p>';
+        const emptyMsg = isModerationMode ? 'Нет работ, ожидающих модерации. Отличная работа!' : 'Пока нет загруженных работ. Станьте первым!';
+        gallery.innerHTML = `<p class="empty-state">${emptyMsg}</p>`;
         return;
     }
 
-    const votedWorkId = getMyVote(id);
+    const votedWorkId = !isModerationMode ? getMyVote(id) : null;
 
     works.forEach(work => {
         const card = document.createElement('div');
         card.className = 'work-card animate-card';
 
         const imageUrl = String(work.image).startsWith('http') ? work.image : `/media/${work.image}`;
-        const isVoted = votedWorkId && votedWorkId == work.id;
-        const votingOpen = currentContest && (currentContest.status === 'voting' || currentContest.status === 'closed');
         const isOwn = API.isAuthed() && API.user()?.id === work.user_id;
 
-        let voteBtnHtml = '';
-        if (votingOpen) {
-            if (isVoted) {
-                voteBtnHtml = `<button class="vote-btn" disabled>✔ Ваш голос учтён</button>`;
-            } else if (isOwn) {
-                voteBtnHtml = `<button class="vote-btn" disabled title="Нельзя голосовать за свою работу">Это ваша работа</button>`;
-            } else {
-                voteBtnHtml = `<button class="vote-btn" data-work-id="${work.id}">👍 Голосовать</button>`;
+        let actionHtml = '';
+
+        if (isModerationMode) {
+            // Кнопки для модератора
+            actionHtml = `
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    <button class="btn btn-sm" style="background:var(--success); color:#fff; flex:1;" onclick="moderateWork(${work.id}, 'approve')">✔ Одобрить</button>
+                    <button class="btn btn-sm btn-danger" style="flex:1;" onclick="moderateWork(${work.id}, 'reject')">✖ Отклонить</button>
+                </div>
+            `;
+        } else {
+            // Кнопки для обычного пользователя (голосование)
+            const isVoted = votedWorkId && votedWorkId == work.id;
+            const votingOpen = currentContest && (currentContest.status === 'voting' || currentContest.status === 'closed');
+            const hasVoted = !!votedWorkId;
+
+            if (votingOpen) {
+                if (isVoted) {
+                    actionHtml = `<button class="vote-btn" disabled>✔ Ваш голос учтён</button>`;
+                } else if (isOwn) {
+                    actionHtml = `<button class="vote-btn" disabled title="Нельзя голосовать за свою работу">Это ваша работа</button>`;
+                } else if (hasVoted) {
+                    actionHtml = `<button class="vote-btn" disabled>👍 Голосовать</button>`;
+                } else {
+                    actionHtml = `<button class="vote-btn" data-work-id="${work.id}">👍 Голосовать</button>`;
+                }
             }
         }
 
@@ -139,23 +196,22 @@ async function loadWorks(id) {
             <div class="work-info">
                 <h3 class="work-title">${esc(work.title)}</h3>
                 <p class="work-author">Автор ID: ${esc(work.user_id ?? '?')}</p>
-                ${voteBtnHtml}
-                <div class="vote-count">Голосов: <span class="votes-num">${work.votes_count || 0}</span></div>
+                ${actionHtml}
+                ${!isModerationMode ? `<div class="vote-count">Голосов: <span class="votes-num">${work.votes_count || 0}</span></div>` : ''}
             </div>
         `;
         gallery.appendChild(card);
     });
 
-    // Обработчики кнопок голосования
-    gallery.querySelectorAll('.vote-btn[data-work-id]').forEach(btn => {
-        btn.addEventListener('click', () => castVote(btn, id));
-    });
+    // Обработчики кнопок голосования (только если не режим модерации)
+    if (!isModerationMode) {
+        gallery.querySelectorAll('.vote-btn[data-work-id]').forEach(btn => {
+            btn.addEventListener('click', () => castVote(btn, id));
+        });
+    }
 }
 
-// 3. Голосование.
-// ВНИМАНИЕ: на бэкенде пока нет эндпоинта POST /api/votes/ —
-// поэтому голос сохраняется локально, а кнопка блокируется.
-// Когда появится API — замените тело функции на fetch-запрос.
+// 3. Голосование
 async function castVote(btn, contestId) {
     if (!API.isAuthed()) {
         toast('Войдите, чтобы голосовать', 'error');
@@ -164,26 +220,75 @@ async function castVote(btn, contestId) {
     }
 
     const workId = btn.dataset.workId;
-    setMyVote(contestId, Number(workId));
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
 
-    // Обновляем UI: снимаем выделение с других кнопок, ставим галочку этой
+    const { ok, status, data } = await API.postForm('/api/votes/', {
+        contest_id: contestId,
+        work_id: workId
+    }, true);
+
+    if (!ok) {
+        btn.disabled = false;
+        btn.textContent = '👍 Голосовать';
+        if (status === 401) {
+            API.clearSession();
+            renderHeader();
+            toast('Сессия истекла, войдите снова', 'error');
+            return;
+        }
+        toast(data?.message || 'Ошибка при голосовании', 'error');
+        return;
+    }
+
+    setMyVote(contestId, Number(workId));
     const gallery = document.getElementById('works-gallery');
     gallery.querySelectorAll('.vote-btn[data-work-id]').forEach(b => {
-        b.textContent = '👍 Голосовать';
+        if (b.dataset.workId === workId) {
+            b.textContent = '✔ Ваш голос учтён';
+            b.disabled = true;
+        } else {
+            b.disabled = true;
+        }
     });
-    btn.textContent = '✔ Ваш голос учтён';
-    btn.disabled = true;
 
     const countEl = btn.closest('.work-info').querySelector('.votes-num');
-    if (countEl) countEl.textContent = Number(countEl.textContent || 0) + 1;
-
-    toast('Голос принят! (локально — до подключения API голосования)', 'success');
+    if (countEl && data?.data?.votes_count !== undefined) {
+        countEl.textContent = data.data.votes_count;
+    }
+    toast('Голос принят!', 'success');
 }
 
-// 4. Форма загрузки работы
+// 4. Модерация работы (Новая функция)
+async function moderateWork(workId, action) {
+    const actionText = action === 'approve' ? 'Одобрить' : 'Отклонить';
+    if (!confirm(`Вы уверены, что хотите ${actionText.toLowerCase()} эту работу?`)) return;
+
+    // Находим кнопку и блокируем её
+    const btns = document.querySelectorAll(`button[onclick="moderateWork(${workId}, '${action}')"]`);
+    btns.forEach(b => { b.disabled = true; b.textContent = 'Обработка...'; });
+
+    const { ok, data } = await API.postForm('/api/works/moderate/', {
+        work_id: workId,
+        action: action
+    }, true);
+
+    if (ok) {
+        toast(data.message, 'success');
+        loadWorks(CONTEST_ID); // Перезагружаем список, чтобы работа исчезла из pending
+    } else {
+        toast(data?.message || 'Ошибка модерации', 'error');
+        btns.forEach(b => {
+            b.disabled = false;
+            b.textContent = action === 'approve' ? '✔ Одобрить' : '✖ Отклонить';
+        });
+    }
+}
+
+// 5. Форма загрузки работы
 function setupUploadForm(contestId) {
     const form = document.getElementById('upload-form');
-    if (!form) return; // блок мог быть заменён на "Войдите"
+    if (!form) return;
 
     const fileInput = document.getElementById('file-input');
     const fileNameDisplay = document.getElementById('file-name');
@@ -204,7 +309,6 @@ function setupUploadForm(contestId) {
         if (fileInput.files.length > 0) showFile(fileInput.files[0]);
     });
 
-    // Drag and Drop
     ['dragover'].forEach(ev => uploadArea.addEventListener(ev, (e) => {
         e.preventDefault();
         uploadArea.classList.add('dragover');
@@ -248,7 +352,7 @@ function setupUploadForm(contestId) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Загрузка...';
 
-        const { ok, data } = await API.postMultipart('/api/works/', formData);
+        const { ok, data } = await API.postMultipart('/api/works/', formData, true);
 
         submitBtn.disabled = false;
         submitBtn.textContent = 'Загрузить работу';
@@ -270,7 +374,5 @@ function setupUploadForm(contestId) {
         preview.style.display = 'none';
         fileNameDisplay.innerHTML = '📷 Нажмите, чтобы выбрать фото, или перетащите файл сюда<br><small>JPEG / PNG / WEBP, макс. 10 МБ</small>';
         uploadArea.style.borderColor = 'var(--border-color)';
-        // На модерации — в галерее её пока не видно, но обновим на всякий случай
-        loadWorks(contestId);
     });
 }

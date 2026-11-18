@@ -15,8 +15,14 @@ urlpatterns = [
     path('api/logout/', views.logout, name='logout'),
     path('api/test/', views.test, name='test'),
     path('api/', views.main, name='main'),
+    path('profile/', views.profile_page, name='profile_page'),
     path('login/', login_page, name='login_page'),
     path('contest/', contest_page, name='contest_page'),
+    path('api/works/moderate/', views.moderate_work, name='moderate_work'),
+    path('api/profile/', views.profile, name='profile'),
+    path('api/change-password/', views.change_password, name='change_password'),
+    path('api/admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('api/votes/', views.votes, name='votes'),
     path('api/contests/', views.contests, name='contests'),
     path('api/refresh/', auth_refresh, name='auth_refresh'),
     path('api/works/', views.works, name='works'),
@@ -26,3 +32,4 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -1,6 +1,5 @@
 /* ============================================================
    api.js — общий модуль: авторизация, шапка, toast, модалки
-   Подключается ПЕРВЫМ на всех страницах.
    ============================================================ */
 
 const API = {
@@ -19,7 +18,6 @@ const API = {
     },
     isAuthed: () => !!API.token(),
 
-    // POST формы (x-www-form-urlencoded) — как ждёт бэкенд (request.POST.get)
     postForm: async (url, fields = {}, withAuth = false) => {
         const body = new URLSearchParams();
         Object.entries(fields).forEach(([k, v]) => body.append(k, v));
@@ -31,7 +29,6 @@ const API = {
         return { ok: res.ok, status: res.status, data };
     },
 
-    // POST multipart (загрузка файлов)
     postMultipart: async (url, formData, withAuth = true) => {
         const headers = {};
         if (withAuth && API.token()) headers['Authorization'] = `Bearer ${API.token()}`;
@@ -69,14 +66,20 @@ function toast(message, type = 'info', ms = 3500) {
     }, ms);
 }
 
-// ---------- Экранирование (защита от XSS при innerHTML) ----------
+// ---------- Экранирование (защита от XSS) ----------
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[c]);
 }
 
-// ---------- Шапка: динамическая в зависимости от авторизации ----------
+// ---------- Права на управление ----------
+function canManage() {
+    const u = API.user();
+    return u && (u.role_id === 3 || u.role_id === 4);  // organizer или admin
+}
+
+// ---------- Шапка ----------
 function renderHeader() {
     const nav = document.getElementById('nav-auth-area');
     if (!nav) return;
@@ -85,6 +88,7 @@ function renderHeader() {
     if (API.isAuthed() && user) {
         nav.innerHTML = `
             <span class="nav-user">Привет, <b>${esc(user.name)}</b></span>
+            <a href="/profile/" class="btn btn-outline btn-sm">Профиль</a>
             ${canManage() ? `<button class="btn btn-sm" id="btn-create-contest">+ Конкурс</button>` : ''}
             <button class="btn btn-outline btn-sm" id="btn-logout">Выйти</button>
         `;
@@ -98,11 +102,6 @@ function renderHeader() {
         `;
         document.getElementById('btn-register-open').addEventListener('click', () => openModal('modal-register'));
     }
-}
-
-function canManage() {
-    const u = API.user();
-    return u && (u.role_id === 1 || u.role_id === 3);
 }
 
 async function logout() {
@@ -137,7 +136,7 @@ function setupModals() {
     });
 }
 
-// ---------- Форма регистрации (в модалке) ----------
+// ---------- Форма регистрации ----------
 function setupRegisterForm() {
     const form = document.getElementById('register-form');
     if (!form) return;
@@ -145,18 +144,18 @@ function setupRegisterForm() {
     const successBox = document.getElementById('register-success');
     const btn = form.querySelector('button[type="submit"]');
 
-    ['name', 'email', 'password'].forEach(f => {
-        const fe = document.getElementById(`reg-fe-${f}`);
-        if (fe) { fe.classList.remove('visible'); fe.textContent = ''; }
-        const inp = document.getElementById(`reg-${f}`);
-        if (inp) inp.classList.remove('invalid');
-    });
-    errBox.classList.remove('visible');
-    successBox.classList.remove('visible');
-
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         btn.disabled = true; btn.textContent = 'Отправка...';
+
+        ['name', 'email', 'password'].forEach(f => {
+            const fe = document.getElementById(`reg-fe-${f}`);
+            const inp = document.getElementById(`reg-${f}`);
+            if (fe) { fe.classList.remove('visible'); fe.textContent = ''; }
+            if (inp) inp.classList.remove('invalid');
+        });
+        errBox.classList.remove('visible');
+        successBox.classList.remove('visible');
 
         const fields = {
             name: document.getElementById('reg-name').value.trim(),
@@ -174,7 +173,6 @@ function setupRegisterForm() {
             return;
         }
 
-        // Показываем ошибки по полям (бэкенд возвращает errors: {name: [], email: []...})
         const errors = data?.errors || {};
         ['name', 'email', 'password'].forEach(f => {
             const fe = document.getElementById(`reg-fe-${f}`);
@@ -183,8 +181,6 @@ function setupRegisterForm() {
                 fe.textContent = errors[f].join(', ');
                 fe.classList.add('visible');
                 inp.classList.add('invalid');
-            } else if (fe && inp) {
-                fe.textContent = ''; fe.classList.remove('visible'); inp.classList.remove('invalid');
             }
         });
         if (!Object.keys(errors).length) {
@@ -194,7 +190,7 @@ function setupRegisterForm() {
     });
 }
 
-// ---------- Форма создания конкурса (модалка для админа/жюри) ----------
+// ---------- Форма создания конкурса ----------
 function setupCreateContestForm() {
     const form = document.getElementById('create-contest-form');
     if (!form) return;
@@ -208,7 +204,7 @@ function setupCreateContestForm() {
 
         const fields = {
             title: document.getElementById('cc-title').value.trim(),
-            describtion: document.getElementById('cc-description').value.trim(), // именно так читает бэкенд
+            description: document.getElementById('cc-description').value.trim(),
         };
 
         const { ok, data } = await API.postForm('/api/contests/', fields, true);

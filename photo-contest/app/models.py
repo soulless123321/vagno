@@ -63,7 +63,8 @@ class Work(models.Model):
     views = models.IntegerField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(blank=True, null=True)
-    search_vector = models.TextField(blank=True, null=True)  # This field type is a guess.
+
+    # search_vector = models.TextField(blank=True, null=True)  # ЗАКОММЕНТИРОВАНО: это генерируемый столбец в БД
 
     class Meta:
         managed = False
