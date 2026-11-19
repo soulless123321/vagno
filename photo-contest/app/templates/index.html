@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Arctic Photo — Платформа фотоконкурсов{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+{% endblock %}
+
+{% block body %}
+    <!-- ... остальной код без изменений ... -->
+    <div class="hero">
+        <h1>Открой красоту Севера</h1>
+        <p>Участвуй в фотоконкурсах, делись своим творчеством и получай признание.</p>
+        <a href="#contests" class="btn" style="font-size: 18px; padding: 15px 40px;">Смотреть конкурсы</a>
+    </div>
+
+    <main class="container page-content" id="contests">
+        <h2 class="section-title">Конкурсы</h2>
+
+        <!-- Панель фильтров / сортировки -->
+        <div class="toolbar">
+            <button class="chip active" data-filter="all">Все</button>
+            <button class="chip" data-filter="open">Приём работ</button>
+            <button class="chip" data-filter="voting">Голосование</button>
+            <button class="chip" data-filter="closed">Завершённые</button>
+            <button class="chip" data-filter="mine">Мои конкурсы</button>
+            <select id="sort-select" title="Сортировка">
+                <option value="">Сначала новые</option>
+                <option value="title">По названию (А–Я)</option>
+            </select>
+        </div>
+
+        <div id="loader" class="loader">Загрузка конкурсов...</div>
+        <div id="error-message" class="notice notice-error"></div>
+
+        <div id="contests-grid" class="grid">
+            <!-- Сюда JS вставляет карточки -->
+        </div>
+
+        <div class="pagination" id="pagination" style="display:none;">
+            <button id="page-prev">&larr; Назад</button>
+            <span id="page-info">Стр. 1</span>
+            <button id="page-next">Вперёд &rarr;</button>
+        </div>
+    </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/main.js' %}"></script>
+{% endblock %}
