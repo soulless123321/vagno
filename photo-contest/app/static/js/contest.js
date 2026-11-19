@@ -1,5 +1,6 @@
 /* ============================================================
-   contest.js — страница конкурса: инфо, галерея, загрузка, голосование, модерация
+   contest.js — страница конкурса: инфо, галерея, загрузка,
+   голосование, модерация и управление статусом
    Зависимости: api.js
    ============================================================ */
 
@@ -69,11 +70,39 @@ async function loadContestData(id) {
         statusBadge.className = 'badge badge-draft';
     }
 
-    // Добавляем кнопку режима модерации, если у пользователя есть права (роль 1 или 3)
+    // --- ПАНЕЛЬ УПРАВЛЕНИЯ СТАТУСОМ (для organizer/admin) ---
     if (canManage()) {
+        const statusPanel = document.getElementById('status-control-panel');
+        const statusText = document.getElementById('current-status-text');
+        const statusBtn = document.getElementById('btn-change-status');
+
+        if (statusPanel && statusText && statusBtn) {
+            statusPanel.style.display = 'block';
+            statusText.textContent = status.toUpperCase();
+
+            const statusActions = {
+                'draft': { text: '🚀 Открыть приём работ', nextStatus: 'open' },
+                'open': { text: '🗳️ Начать голосование', nextStatus: 'voting' },
+                'voting': { text: '🏆 Завершить конкурс', nextStatus: 'closed' },
+                'closed': null
+            };
+
+            const action = statusActions[status];
+            if (action) {
+                statusBtn.textContent = action.text;
+                statusBtn.onclick = () => changeContestStatus(CONTEST_ID, action.nextStatus);
+            } else {
+                statusBtn.textContent = 'Конкурс завершён';
+                statusBtn.disabled = true;
+                statusBtn.style.opacity = '0.6';
+            }
+        }
+
+        // Кнопка режима модерации
         const modToggle = document.createElement('button');
         modToggle.className = 'btn btn-outline btn-sm';
         modToggle.style.marginTop = '15px';
+        modToggle.style.marginRight = '10px';
         modToggle.textContent = '🛡 Режим модерации';
         modToggle.onclick = () => {
             isModerationMode = !isModerationMode;
@@ -231,10 +260,15 @@ async function castVote(btn, contestId) {
     if (!ok) {
         btn.disabled = false;
         btn.textContent = '👍 Голосовать';
+
         if (status === 401) {
             API.clearSession();
             renderHeader();
             toast('Сессия истекла, войдите снова', 'error');
+            return;
+        }
+        if (status === 403) {
+            toast(data?.message || 'Вы уже голосовали в этом конкурсе', 'error');
             return;
         }
         toast(data?.message || 'Ошибка при голосовании', 'error');
@@ -259,12 +293,11 @@ async function castVote(btn, contestId) {
     toast('Голос принят!', 'success');
 }
 
-// 4. Модерация работы (Новая функция)
+// 4. Модерация работы
 async function moderateWork(workId, action) {
     const actionText = action === 'approve' ? 'Одобрить' : 'Отклонить';
     if (!confirm(`Вы уверены, что хотите ${actionText.toLowerCase()} эту работу?`)) return;
 
-    // Находим кнопку и блокируем её
     const btns = document.querySelectorAll(`button[onclick="moderateWork(${workId}, '${action}')"]`);
     btns.forEach(b => { b.disabled = true; b.textContent = 'Обработка...'; });
 
@@ -275,7 +308,7 @@ async function moderateWork(workId, action) {
 
     if (ok) {
         toast(data.message, 'success');
-        loadWorks(CONTEST_ID); // Перезагружаем список, чтобы работа исчезла из pending
+        loadWorks(CONTEST_ID); // Перезагружаем список
     } else {
         toast(data?.message || 'Ошибка модерации', 'error');
         btns.forEach(b => {
@@ -375,4 +408,39 @@ function setupUploadForm(contestId) {
         fileNameDisplay.innerHTML = '📷 Нажмите, чтобы выбрать фото, или перетащите файл сюда<br><small>JPEG / PNG / WEBP, макс. 10 МБ</small>';
         uploadArea.style.borderColor = 'var(--border-color)';
     });
+}
+
+// 6. Управление статусом конкурса (Новая функция)
+async function changeContestStatus(contestId, newStatus) {
+    const statusNames = {
+        'open': 'приём работ',
+        'voting': 'голосование',
+        'closed': 'завершён'
+    };
+
+    if (!confirm(`Вы уверены, что хотите перевести конкурс в статус "${statusNames[newStatus]}"?`)) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-change-status');
+    const errBox = document.getElementById('status-error');
+
+    btn.disabled = true;
+    btn.textContent = 'Обработка...';
+    errBox.classList.remove('visible');
+
+    const { ok, data } = await API.postForm(`/api/contests/${contestId}/status/`, {
+        status: newStatus
+    }, true);
+
+    btn.disabled = false;
+
+    if (ok) {
+        toast(data.message, 'success');
+        setTimeout(() => window.location.reload(), 1500);
+    } else {
+        errBox.textContent = data?.message || 'Ошибка смены статуса';
+        errBox.classList.add('visible');
+        btn.textContent = 'Попробовать снова';
+    }
 }

@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const token = data?.data?.token;
+        const refreshToken = data?.data?.refresh_token;
         const user = data?.data?.user;
         if (!token) {
             errorMsg.textContent = 'Сервер не вернул токен';

@@ -76,7 +76,7 @@ function esc(s) {
 // ---------- Права на управление ----------
 function canManage() {
     const u = API.user();
-    return u && (u.role_id === 3 || u.role_id === 4);  // organizer или admin
+    return u && (u.role_id === 3 || u.role_id === 4);
 }
 
 // ---------- Шапка ----------
@@ -216,12 +216,32 @@ function setupCreateContestForm() {
             closeModal('modal-create-contest');
             if (typeof loadContests === 'function') loadContests();
         } else {
-            if (data?.status === 401) { API.clearSession(); renderHeader(); toast('Сессия истекла, войдите снова', 'error'); }
+            if (data?.status === 401) {
+                API.clearSession();
+                renderHeader();
+                toast('Сессия истекла, войдите снова', 'error');
+            } else if (data?.status === 403) {
+                toast('Недостаточно прав для создания конкурса', 'error');
+            }
             errBox.textContent = data?.message || 'Не удалось создать конкурс';
             errBox.classList.add('visible');
         }
     });
 }
+// Refresh token
+// ---------- Refresh session (используется при истечении access-токена) ----------
+API.refreshSession = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return { ok: false, status: 401 };
+
+    const { ok, data } = await API.postForm('/api/refresh/', { token: refreshToken });
+    if (ok && data?.data?.token) {
+        API.setSession(data.data.token, API.user());
+        localStorage.setItem('refresh_token', data.data.refresh_token);
+        return { ok: true };
+    }
+    return { ok: false };
+};
 
 // ---------- Инициализация ----------
 document.addEventListener('DOMContentLoaded', () => {

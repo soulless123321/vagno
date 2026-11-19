@@ -240,6 +240,7 @@ def email_confirm(request):
 
 
 @csrf_exempt
+@csrf_exempt
 def login(request):
     if request.method == 'POST':
         email = request.POST.get('email')
@@ -265,7 +266,8 @@ def login(request):
                 'user': {
                     'id': user.id,
                     'name': user.username,
-                    'email': user.email
+                    'email': user.email,
+                    'role_id': user.role_id  # <=== ДОБАВЛЕНО: теперь фронтенд знает роль
                 }
             }
         }, safe=False, status=200)
@@ -382,8 +384,8 @@ def contests_analytics_csv(request):
     if not user:
         return JsonResponse({'code': 401, "message": "Пользователь не авторизован"}, status=401)
 
-    if user.role_id not in (1, 3):
-        return JsonResponse({'code': 403, "messsage": "Недостаточно прав"}, status=403)
+    if user.role_id not in (3, 4):
+        return JsonResponse({'code': 403, "message": "Недостаточно прав"}, status=403)
 
     filename = 'contests_analytics.csv'
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
@@ -407,7 +409,7 @@ def contests_analytics_csv(request):
     for c in contests:
         author = User.objects.filter(id=c.created_by_id).first()
         author_name = author.username if author else 'Неизвестен'
-        author_email =  author.email if author else '_'
+        author_email = author.email if author else '_'
 
         works = Work.objects.filter(contest_id=c.id)
         works_count = works.count()
@@ -459,6 +461,7 @@ def test(request):
     return HttpResponse()
 
 @csrf_exempt
+@csrf_exempt
 def contests(request):
     if request.method == 'POST':
         auth_header = request.headers.get('Authorization')
@@ -473,6 +476,10 @@ def contests(request):
         user = get_user(parts[1], salt='api_access')
         if not user:
             return JsonResponse({'code': 401, 'message': 'Токен недействителен или просрочен'}, status=401)
+
+        # Проверка прав: только organizer (3) или admin (4) могут создавать конкурсы
+        if user.role_id not in (3, 4):
+            return JsonResponse({'code': 403, 'message': 'Недостаточно прав для создания конкурса'}, status=403)
 
         title = request.POST.get('title')
 
@@ -531,13 +538,14 @@ def contests(request):
             queryset = queryset.order_by('title')
         else:
             queryset = queryset.order_by('-id')
-        #пагинация
+
+        # пагинация
         try:
             page = int(request.GET.get('page', 1))
             per_page = int(request.GET.get('per_page', 10))
             if page < 1:
                 page = 1
-            if per_page <1:
+            if per_page < 1:
                 per_page = 10
         except (ValueError, TypeError):
             page = 1
@@ -565,28 +573,32 @@ def contests(request):
                 'description': c.description,
                 'status': c.status,
                 'created_by_id': c.created_by_id,
-                'created_at': c.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'created_at': c.created_at.strftime('%Y-%m-%d %H:%M:%S') if c.created_at else ''
             })
         return JsonResponse({
             'meta': {
                 'page': page,
-                'per_page': per_page
+                'per_page': per_page,
+                'total': total,
+                'total_pages': total_pages
             },
             'data': contests_list
-        },safe=False, status=200)
+        }, safe=False, status=200)
+
+    return JsonResponse({'code': 405, 'message': 'Метод не поддерживается'}, status=405)
 
 def generate_refresh_token(user):
     secret = secrets.token_urlsafe(64)
     user.token = make_password(secret)
     user.save(update_fields=['token'])
-    return f'{user.pk_user}:{secret}'
+    return f'{user.id}:{secret}'  # Исправлено
 
 def verify_refresh_token(raw):
     if not raw or ':' not in raw:
         return None
     id_user, secret = raw.split(':', 1)
     try:
-        user = User.objects.filter(pk_user=id_user).first()
+        user = User.objects.filter(id=int(id_user)).first()  # Исправлено
     except (ValueError, TypeError):
         return None
     if not user or not user.token:
@@ -599,13 +611,28 @@ def verify_refresh_token(raw):
 def revoke_refresh_token(user):
     user.token = None
     user.save(update_fields=['token'])
-def logaut (request):
-    data = request.GET.get('data')
-    user = get_user(data['token'], 'api_access')
+
+
+@csrf_exempt
+def logout_refresh(request):
+    """Выход с использованием refresh token"""
+    if request.method != 'POST':
+        return JsonResponse({'code': 405, 'message': 'Метод не поддерживается'}, status=405)
+
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return JsonResponse({'code': 401, 'message': 'Токен не передан'}, status=401)
+
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0] != 'Bearer':
+        return JsonResponse({'code': 401, 'message': 'Неверный формат токена'}, status=401)
+
+    user = get_user(parts[1], 'api_access')
     if not user:
-        return JsonResponse({'code': 200, 'message': 'Вы вышли'}, status=401)
+        return JsonResponse({'code': 401, 'message': 'Токен недействителен'}, status=401)
+
     revoke_refresh_token(user)
-    return JsonResponse({'code': 200,'message': 'Вы вышли'}, status=200)
+    return JsonResponse({'code': 200, 'message': 'Вы вышли'}, status=200)
 @csrf_exempt
 def auth_refresh(request):
     if request.method != 'POST':
@@ -948,3 +975,121 @@ def admin_dashboard(request):
         }, status=200)
 
     return JsonResponse({'code': 405, 'message': 'Метод не поддерживается'}, status=405)
+
+
+@csrf_exempt
+def change_contest_status(request, contest_id):
+    """Смена статуса конкурса (только для organizer/admin)"""
+    if request.method != 'POST':
+        return JsonResponse({'code': 405, 'message': 'Метод не поддерживается'}, status=405)
+
+    # 1. Проверка авторизации
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return JsonResponse({'code': 401, 'message': 'Токен не передан'}, status=401)
+
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0] != 'Bearer':
+        return JsonResponse({'code': 401, 'message': 'Неверный формат токена'}, status=401)
+
+    user = get_user(parts[1], salt='api_access')
+    if not user:
+        return JsonResponse({'code': 401, 'message': 'Токен недействителен или просрочен'}, status=401)
+
+    # 2. Проверка прав
+    if user.role_id not in (3, 4):
+        return JsonResponse({'code': 403, 'message': 'Недостаточно прав'}, status=403)
+
+    # 3. Поиск конкурса
+    try:
+        contest = Contest.objects.get(id=int(contest_id))
+    except Contest.DoesNotExist:
+        return JsonResponse({'code': 404, 'message': 'Конкурс не найден'}, status=404)
+
+    # 4. Получаем желаемый статус
+    new_status = request.POST.get('status')
+    valid_transitions = {
+        'draft': 'open',
+        'open': 'voting',
+        'voting': 'closed'
+    }
+
+    if new_status not in valid_transitions.values():
+        return JsonResponse({'code': 422, 'message': 'Некорректный статус'}, status=422)
+
+    # 5. Проверяем, что переход разрешён
+    if contest.status not in valid_transitions:
+        return JsonResponse({'code': 400, 'message': 'Нельзя изменить статус этого конкурса'}, status=400)
+
+    if valid_transitions[contest.status] != new_status:
+        return JsonResponse({'code': 400, 'message': f'Нельзя перейти из {contest.status} в {new_status}'}, status=400)
+
+    # 6. Дополнительные проверки для перехода open -> voting
+    if contest.status == 'open' and new_status == 'voting':
+        approved_works = Work.objects.filter(contest_id=contest.id, status='approved').count()
+        if approved_works == 0:
+            return JsonResponse({'code': 400, 'message': 'Нельзя начать голосование: нет одобренных работ'}, status=400)
+
+        # Устанавливаем даты голосования
+        contest.voting_start = timezone.now()
+        contest.voting_end = timezone.now() + timezone.timedelta(days=7)  # Голосование длится 7 дней
+
+    # 7. Дополнительные действия для перехода voting -> closed
+    if contest.status == 'voting' and new_status == 'closed':
+        contest.results_date = timezone.now()
+        # Здесь можно добавить автоматический подсчёт победителей
+
+    # 8. Устанавливаем даты для перехода draft -> open
+    if contest.status == 'draft' and new_status == 'open':
+        contest.submission_start = timezone.now()
+        contest.submission_end = timezone.now() + timezone.timedelta(days=14)  # Приём работ 14 дней
+
+    # 9. Обновляем статус
+    contest.status = new_status
+    contest.updated_at = timezone.now()
+    contest.save()
+
+    return JsonResponse({
+        'code': 200,
+        'message': f'Статус конкурса изменён на {new_status}',
+        'data': {
+            'contest_id': contest.id,
+            'old_status': contest.status,
+            'new_status': new_status
+        }
+    }, status=200)
+
+
+@csrf_exempt
+def get_contest_winners(request, contest_id):
+    """Получение топ-3 работ конкурса для пьедестала"""
+    if request.method != 'GET':
+        return JsonResponse({'code': 405, 'message': 'Метод не поддерживается'}, status=405)
+
+    try:
+        contest = Contest.objects.get(id=int(contest_id))
+    except Contest.DoesNotExist:
+        return JsonResponse({'code': 404, 'message': 'Конкурс не найден'}, status=404)
+
+    # Пьедестал показываем только для завершённых конкурсов
+    if contest.status != 'closed':
+        return JsonResponse({'code': 400, 'message': 'Конкурс ещё не завершён'}, status=400)
+
+    # Берём топ-3 одобренных работы по количеству голосов
+    winners = Work.objects.filter(
+        contest_id=contest_id,
+        status='approved'
+    ).order_by('-votes_count')[:3]
+
+    data = []
+    for rank, work in enumerate(winners, start=1):
+        data.append({
+            'rank': rank,
+            'id': work.id,
+            'title': work.title,
+            'image': work.image,
+            'votes_count': work.votes_count or 0,
+            'user_id': work.user_id
+        })
+
+    return JsonResponse({'code': 200, 'data': data}, status=200)

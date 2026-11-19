@@ -3,9 +3,14 @@
 
 {% block title %}Вход — Arctic Photo{% endblock %}
 
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+{% endblock %}
+
 {% block header %}{% endblock %}
 
 {% block body %}
+    <!-- ... остальной код без изменений ... -->
     <div class="auth-page" style="min-height:100vh;">
         <div class="auth-box">
             <a href="/" class="logo">❄️ Arctic <span>Photo</span></a>

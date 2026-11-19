@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block title %}Arctic Photo — Платформа фотоконкурсов{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+{% endblock %}
+
 {% block body %}
+    <!-- ... остальной код без изменений ... -->
     <div class="hero">
         <h1>Открой красоту Севера</h1>
         <p>Участвуй в фотоконкурсах, делись своим творчеством и получай признание.</p>
@@ -17,6 +24,7 @@
             <button class="chip" data-filter="open">Приём работ</button>
             <button class="chip" data-filter="voting">Голосование</button>
             <button class="chip" data-filter="closed">Завершённые</button>
+            <button class="chip" data-filter="mine">Мои конкурсы</button>
             <select id="sort-select" title="Сортировка">
                 <option value="">Сначала новые</option>
                 <option value="title">По названию (А–Я)</option>
