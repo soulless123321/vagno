@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Конкурс — Arctic Photo{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/contest.css' %}">
+{% endblock %}
+
+{% block body %}
+    <div class="container contest-header">
+        <span id="contest-status" class="badge badge-draft">Загрузка...</span>
+        <h1 id="contest-title" class="contest-title">Название конкурса</h1>
+        <p id="contest-desc" class="contest-desc">Описание конкурса...</p>
+    </div>
+
+    <div class="container">
+        <!-- Панель управления статусом -->
+        <div id="status-control-panel" style="display: none; margin-bottom: 32px; padding: 24px; border-radius: var(--radius-md);">
+            <h3 style="margin-bottom: 12px; font-size: 1.1rem;">⚙️ Управление конкурсом</h3>
+            <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.9rem;">Текущий статус: <span id="current-status-text" style="color: var(--accent); font-weight: 700;"></span></p>
+            <button id="btn-change-status" class="btn btn-primary btn-block"></button>
+            <div id="status-error" class="error-msg" style="margin-top: 12px;"></div>
+        </div>
+
+        <!-- Пьедестал -->
+        <div id="winners-podium" style="display: none; margin-bottom: 48px;">
+            <h2 class="section-title" style="text-align: center;">🏆 Победители конкурса</h2>
+            <div class="podium-container" id="podium-container"></div>
+        </div>
+
+        <!-- Загрузка работы -->
+        <div id="upload-container" class="upload-section" style="display: none;">
+            <h3 style="margin-bottom: 16px;">📤 Участвовать в конкурсе</h3>
+            <form id="upload-form">
+                <input type="text" id="work-title" class="input" placeholder="Название вашей работы" maxlength="200" required style="margin-bottom: 12px;">
+                <img id="upload-preview" class="upload-preview" alt="Предпросмотр">
+                <div class="upload-area" id="upload-area">
+                    <p id="file-name">📷 Нажмите, чтобы выбрать фото, или перетащите файл сюда<br>
+                        <small style="color: var(--text-muted);">JPEG / PNG / WEBP, макс. 10 МБ</small></p>
+                    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="upload-btn">Загрузить работу</button>
+                <div id="upload-error" class="error-msg"></div>
+            </form>
+        </div>
+
+        <!-- Подсказка о голосовании -->
+        <div class="toolbar" id="vote-hint" style="display:none; margin-bottom: 20px; padding: 12px 16px; background: var(--bg-secondary); border-radius: var(--radius-sm); border-left: 3px solid var(--warning);">
+            <span style="font-size: 0.9rem;">💡 Вы можете проголосовать за одну работу в этом конкурсе.</span>
+        </div>
+
+        <h2 id="gallery-title" style="margin-bottom: 20px; display: none;">Работы участников</h2>
+
+        <div id="loader" class="loader" style="display: none;">Загрузка работ...</div>
+
+        <div id="works-gallery" class="masonry-grid"></div>
+    </div>
+
+    <!-- Модалка комментариев -->
+    <div class="modal-overlay" id="modal-comments">
+        <div class="modal">
+            <button class="modal-close" type="button" onclick="closeComments()">&times;</button>
+            <h3 style="margin-bottom: 20px;">💬 Комментарии</h3>
+
+            <div id="comment-form-container" style="margin-bottom: 20px; display: none;">
+                <textarea id="comment-text" class="input" rows="3" placeholder="Напишите комментарий..." style="margin-bottom: 10px;"></textarea>
+                <button class="btn btn-primary btn-block" onclick="submitComment()">Отправить</button>
+                <div id="comment-error" class="error-msg" style="margin-top: 10px;"></div>
+            </div>
+
+            <div id="comment-login-hint" style="margin-bottom: 20px; display: none; text-align: center;">
+                <p style="color: var(--text-muted); margin-bottom: 15px;">Войдите, чтобы оставить комментарий.</p>
+                <a href="/login/" class="btn btn-primary btn-block">Войти</a>
+            </div>
+
+            <div id="comments-list" style="max-height: 400px; overflow-y: auto;">
+                <p class="loader">Загрузка...</p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/contest.js' %}"></script>
+{% endblock %}

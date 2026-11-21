@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Arctic Photo — Фотоконкурсы{% endblock %}
+
+{% block body %}
+<div class="container" style="padding: 48px 0;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h1 style="font-size: 3rem; margin-bottom: 12px; background: linear-gradient(135deg, #fff, #94a3b8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            Фотоконкурсы
+        </h1>
+        <p class="text-muted" style="font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
+            Участвуйте в конкурсах, загружайте работы и голосуйте за лучшие фотографии
+        </p>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="filters-bar">
+        <button class="filter-btn active" data-filter="all">Все</button>
+        <button class="filter-btn" data-filter="open">Приём работ</button>
+        <button class="filter-btn" data-filter="voting">Голосование</button>
+        <button class="filter-btn" data-filter="closed">Завершённые</button>
+        <button class="filter-btn" data-filter="mine">Мои конкурсы</button>
+        <select class="filter-select" id="sort-select">
+            <option value="">Сначала новые</option>
+            <option value="title">По названию</option>
+        </select>
+    </div>
+
+    <!-- Сетка конкурсов -->
+    <div id="contests-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+        <!-- Заполняется через JS -->
+    </div>
+
+    <div id="contests-loader" class="loader">Загрузка конкурсов...</div>
+    <div id="contests-empty" class="empty-state" style="display: none;">Конкурсы не найдены</div>
+</div>
+<!-- Модалка создания конкурса -->
+<div class="modal-overlay" id="modal-create-contest">
+    <div class="modal">
+        <button class="modal-close" type="button" onclick="closeModal('modal-create-contest')">&times;</button>
+        <h3 style="margin-bottom: 20px;">➕ Создать новый конкурс</h3>
+        <form id="create-contest-form">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Название</label>
+                <input type="text" name="title" class="input" required placeholder="Например: Зима в Арктике 2026" maxlength="200">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Описание</label>
+                <textarea name="description" class="input" rows="4" placeholder="Опишите правила и тематику конкурса..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Создать</button>
+            <div id="create-contest-error" class="error-msg" style="margin-top: 12px;"></div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/index.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Админ-панель — Arctic Photo{% endblock %}
+
+{% block body %}
+<div class="container" style="padding: 48px 0;">
+    <h1 style="text-align: center; margin-bottom: 40px;">📊 Панель администратора</h1>
+
+    <div id="admin-loading" class="loader">Загрузка статистики...</div>
+
+    <div id="admin-content" style="display: none;">
+        <!-- Статистика -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px;">
+            <div class="stat-card" style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--accent);" id="stat-users">0</div>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Всего пользователей</div>
+            </div>
+            <div class="stat-card" style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--success);" id="stat-contests">0</div>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Конкурсов</div>
+            </div>
+            <div class="stat-card" style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--warning);" id="stat-works">0</div>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Работ загружено</div>
+            </div>
+            <div class="stat-card" style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--danger);" id="stat-pending">0</div>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Ожидают модерации</div>
+            </div>
+            <div class="stat-card" style="background: var(--bg-secondary); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: #8b5cf6;" id="stat-votes">0</div>
+                <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">Всего голосов</div>
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+            <a href="/api/contests/analytics/" class="btn btn-primary btn-block" style="padding: 20px; font-size: 1rem; text-decoration: none;" download>
+                📥 Выгрузить аналитику в CSV
+            </a>
+            <a href="/" class="btn btn-outline btn-block" style="padding: 20px; font-size: 1rem; text-decoration: none;">
+                ← Вернуться на главную
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadAdminStats() {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/dashboard/', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.code !== 200) {
+                if (res.status === 403) {
+                    document.getElementById('admin-loading').textContent = 'Недостаточно прав для просмотра этой страницы';
+                    return;
+                }
+                localStorage.removeItem('auth_token');
+                window.location.href = '/login/';
+                return;
+            }
+
+            const s = data.data;
+            document.getElementById('stat-users').textContent = s.total_users;
+            document.getElementById('stat-contests').textContent = s.total_contests;
+            document.getElementById('stat-works').textContent = s.total_works;
+            document.getElementById('stat-pending').textContent = s.pending_works;
+            document.getElementById('stat-votes').textContent = s.total_votes;
+
+            document.getElementById('admin-loading').style.display = 'none';
+            document.getElementById('admin-content').style.display = 'block';
+        } catch (e) {
+            document.getElementById('admin-loading').textContent = 'Ошибка загрузки статистики';
+        }
+    }
+
+    loadAdminStats();
+</script>
+{% endblock %}

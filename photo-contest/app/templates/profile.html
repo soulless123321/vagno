@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Профиль — Arctic Photo{% endblock %}
+
+{% block body %}
+<div class="container" style="max-width: 600px; padding: 48px 20px;">
+    <h1 style="text-align: center; margin-bottom: 32px;">Мой профиль</h1>
+
+    <div id="profile-loading" class="loader">Загрузка...</div>
+
+    <div id="profile-content" style="display: none;">
+        <!-- Аватар -->
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div id="avatar-wrapper" style="width: 120px; height: 120px; margin: 0 auto 16px; border-radius: 50%; background: var(--bg-tertiary); border: 3px solid var(--accent); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                👤
+            </div>
+            <form id="avatar-form" style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avatar-input').click()">
+                    📷 Сменить аватар
+                </button>
+            </form>
+        </div>
+
+        <!-- Информация -->
+        <div style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 24px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Имя пользователя</label>
+                <div id="profile-username" style="font-size: 1.1rem; font-weight: 600;"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Email</label>
+                <div id="profile-email" style="font-size: 1rem;"></div>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Роль</label>
+                <div id="profile-role" style="font-size: 1rem;"></div>
+            </div>
+            <div>
+                <label style="display: block; margin-bottom: 6px; font-size: 0.88rem; color: var(--text-muted);">Дата регистрации</label>
+                <div id="profile-date" style="font-size: 1rem;"></div>
+            </div>
+        </div>
+
+        <!-- Смена пароля -->
+        <div style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 24px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">🔒 Смена пароля</h3>
+            <form id="password-form">
+                <div style="margin-bottom: 12px;">
+                    <input type="password" name="old_password" class="input" placeholder="Текущий пароль" required>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <input type="password" name="new_password" class="input" placeholder="Новый пароль" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Сменить пароль</button>
+                <div id="password-error" class="error-msg"></div>
+            </form>
+        </div>
+
+        <!-- Выход -->
+        <button id="logout-btn" class="btn btn-danger btn-block">Выйти из аккаунта</button>
+    </div>
+</div>
+
+<script>
+    const roleNames = { 1: 'Суперадмин', 2: 'Участник', 3: 'Организатор', 4: 'Администратор' };
+
+    async function loadProfile() {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            window.location.href = '/login/';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/profile/', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.code !== 200) {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('auth_user');
+                window.location.href = '/login/';
+                return;
+            }
+
+            const u = data.data;
+            document.getElementById('profile-username').textContent = u.username;
+            document.getElementById('profile-email').textContent = u.email;
+            document.getElementById('profile-role').textContent = roleNames[u.role_id] || 'Неизвестно';
+            document.getElementById('profile-date').textContent = u.created_at ? u.created_at.split(' ')[0] : '—';
+
+            if (u.avatar) {
+                const img = document.createElement('img');
+                img.src = '/media/' + u.avatar;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                const wrapper = document.getElementById('avatar-wrapper');
+                wrapper.innerHTML = '';
+                wrapper.appendChild(img);
+            }
+
+            document.getElementById('profile-loading').style.display = 'none';
+            document.getElementById('profile-content').style.display = 'block';
+        } catch (e) {
+            document.getElementById('profile-loading').textContent = 'Ошибка загрузки профиля';
+        }
+    }
+
+    // Смена пароля
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errBox = document.getElementById('password-error');
+        errBox.classList.remove('visible');
+        const token = localStorage.getItem('auth_token');
+
+        const formData = new URLSearchParams();
+        formData.append('old_password', e.target.old_password.value);
+        formData.append('new_password', e.target.new_password.value);
+
+        const res = await fetch('/api/change-password/', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        });
+        const data = await res.json();
+
+        if (res.ok && data.code === 200) {
+            toast('Пароль изменён', 'success');
+            e.target.reset();
+        } else {
+            errBox.textContent = data.message || 'Ошибка';
+            errBox.classList.add('visible');
+        }
+    });
+
+    // Смена аватара
+    document.getElementById('avatar-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+            toast('Файл слишком большой (макс. 5 МБ)', 'error');
+            return;
+        }
+
+        const token = localStorage.getItem('auth_token');
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        const res = await fetch('/api/profile/', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok && data.code === 200) {
+            toast('Аватар обновлён', 'success');
+            loadProfile();
+        } else {
+            toast(data.message || 'Ошибка загрузки аватара', 'error');
+        }
+    });
+
+    // Выход
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            await fetch('/api/logout/', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+        }
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        toast('Вы вышли из системы', 'success');
+        setTimeout(() => window.location.href = '/', 500);
+    });
+
+    loadProfile();
+</script>
+{% endblock %}
