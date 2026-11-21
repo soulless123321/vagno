@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Вход — Arctic Photo{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block body %}
+    <!-- ... остальной код без изменений ... -->
+    <div class="auth-page" style="min-height:100vh;">
+        <div class="auth-box">
+            <a href="/" class="logo">❄️ Arctic <span>Photo</span></a>
+
+            {% if request.GET.activated == '1' %}
+                <div class="notice notice-success visible">Почта подтверждена! Теперь войдите.</div>
+            {% endif %}
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="password">Пароль</label>
+                    <input type="password" id="password" name="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn" id="submit-btn" style="width:100%; margin-top:10px;">Войти</button>
+                <div id="error-message" class="error-msg"></div>
+            </form>
+
+            <div class="link-text">
+                Нет аккаунта? <a id="open-register">Зарегистрироваться</a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/login.js' %}"></script>
+{% endblock %}
