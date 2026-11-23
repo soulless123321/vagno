@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Arctic Photo — платформа для фотоконкурсов">
+    <title>{% block title %}Arctic Photo{% endblock %}</title>
+
+    <!-- Премиальные шрифты: Clash Display + Satoshi -->
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="container">
+            <a href="/" class="site-logo">📷 <span>Arctic Photo</span></a>
+            <nav class="nav-links" id="nav-links">
+                <a href="/" class="btn btn-outline btn-sm">Конкурсы</a>
+                <a href="/login/" class="btn btn-primary btn-sm">Войти</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>{% block body %}{% endblock %}</main>
+
+    <footer class="site-footer">
+        <div class="container text-center text-muted" style="font-size: 0.88rem;">
+            &copy; 2026 Arctic Photo. Все права защищены.
+        </div>
+    </footer>
+
+    <div id="toast-container"></div>
+
+    <!-- Кастомный курсор -->
+    <div class="custom-cursor" id="cursor"></div>
+
+    <script src="{% static 'js/api.js' %}"></script>
+    {% block scripts %}{% endblock %}
+
+    <script>
+        function toast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            el.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.animation = 'fadeOut 0.3s ease-in forwards';
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
+
+        function esc(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function canManage() {
+            if (!API.isAuthed()) return false;
+            const role = API.user()?.role_id;
+            return role === 3 || role === 4;
+        }
+
+        function openModal(id) {
+            const m = document.getElementById(id);
+            if (m) m.classList.add('active');
+        }
+        function closeModal(id) {
+            const m = document.getElementById(id);
+            if (m) m.classList.remove('active');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // === ДИНАМИЧЕСКАЯ ШАПКА ===
+        function renderHeader() {
+            const nav = document.getElementById('nav-links');
+            if (!nav) return;
+
+            const user = API.user();
+            const token = API.token();
+
+            if (token && user) {
+                const isAdmin = user.role_id === 3 || user.role_id === 4;
+                nav.innerHTML = `
+                    <a href="/" class="btn btn-outline btn-sm">Конкурсы</a>
+                    ${isAdmin ? '<a href="/admin-panel/" class="btn btn-outline btn-sm">📊 Админка</a>' : ''}
+                    <a href="/profile/" class="btn btn-outline btn-sm">👤 ${esc(user.name || user.username || 'Профиль')}</a>
+                    <button class="btn btn-danger btn-sm" id="header-logout">Выйти</button>
+                `;
+
+                document.getElementById('header-logout').addEventListener('click', async () => {
+                    await fetch('/api/logout/', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('auth_user');
+                    toast('Вы вышли из системы', 'success');
+                    setTimeout(() => window.location.href = '/', 500);
+                });
+            } else {
+                nav.innerHTML = `
+                    <a href="/" class="btn btn-outline btn-sm">Конкурсы</a>
+                    <a href="/login/" class="btn btn-primary btn-sm">Войти</a>
+                `;
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', renderHeader);
+        } else {
+            renderHeader();
+        }
+
+        // === ЛОГИКА КАСТОМНОГО КУРСОРА ===
+        const cursor = document.getElementById('cursor');
+        if (window.matchMedia("(hover: hover)").matches && cursor) {
+            let mouseX = 0, mouseY = 0;
+            let cursorX = 0, cursorY = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            function animateCursor() {
+                cursorX += (mouseX - cursorX) * 0.15;
+                cursorY += (mouseY - cursorY) * 0.15;
+                cursor.style.left = cursorX + 'px';
+                cursor.style.top = cursorY + 'px';
+                requestAnimationFrame(animateCursor);
+            }
+            animateCursor();
+
+            const hoverables = document.querySelectorAll('a, button, .work-card, input, textarea, .filter-btn');
+            hoverables.forEach(el => {
+                el.addEventListener('mouseenter', () => cursor.classList.add('hovered'));
+                el.addEventListener('mouseleave', () => cursor.classList.remove('hovered'));
+            });
+        }
+    </script>
+</body>
+</html>
